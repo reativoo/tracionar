@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: README.md
-# ==========================================
-
 # TRACIONAR 📊
 
 Sistema completo de análise de métricas do Facebook Ads para uso pessoal, com dashboard inteligente, insights de IA e relatórios detalhados.
