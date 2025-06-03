@@ -1,0 +1,42 @@
+# ==========================================
+# ARQUIVO: package.json (RAIZ)
+# ==========================================
+
+{
+  "name": "tracionar",
+  "version": "1.0.0",
+  "description": "Sistema de Análise de Métricas do Facebook Ads - Uso Pessoal",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "server:dev": "cd server && npm run dev",
+    "client:dev": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm run start",
+    "setup": "npm run install:server && npm run install:client && npm run db:setup",
+    "install:server": "cd server && npm install",
+    "install:client": "cd client && npm install",
+    "db:setup": "cd server && npx prisma generate && npx prisma migrate deploy",
+    "deploy:prod": "git pull && npm run setup && npm run build && pm2 restart all"
+  },
+  "keywords": ["facebook-ads", "analytics", "dashboard", "personal"],
+  "author": "Reativoo",
+  "license": "Private",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "directories": {
+    "server": "./server",
+    "client": "./client",
+    "docs": "./docs",
+    "deploy": "./deploy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reativoo/tracionar.git"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}

@@ -1,0 +1,215 @@
+# ==========================================
+# ARQUIVO: server/prisma/schema.prisma
+# ==========================================
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./tracionar.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  facebookAccounts FacebookAccount[]
+  preferences      UserPreferences?
+  
+  @@map("users")
+}
+
+model UserPreferences {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  defaultCPA       Float?   // CPA desejável padrão
+  favoriteFilters  String?  // JSON string com filtros salvos
+  dashboardLayout  String?  // JSON string com layout preferido
+  notifications    Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_preferences")
+}
+
+model FacebookAccount {
+  id            String   @id @default(cuid())
+  userId        String
+  accountId     String   // ID da conta do Facebook Ads
+  accountName   String
+  accessToken   String   // Token criptografado
+  refreshToken  String?  // Token de refresh se disponível
+  tokenExpiry   DateTime?
+  isActive      Boolean  @default(true)
+  lastSync      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+  
+  @@unique([userId, accountId])
+  @@map("facebook_accounts")
+}
+
+model Campaign {
+  id                String   @id @default(cuid())
+  facebookAccountId String
+  campaignId        String   // ID da campanha no Facebook
+  name              String
+  objective         String?
+  status            String
+  desiredCPA        Float?   // CPA desejável específico da campanha
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  facebookAccount FacebookAccount @relation(fields: [facebookAccountId], references: [id], onDelete: Cascade)
+  adSets          AdSet[]
+  metrics         CampaignMetrics[]
+  
+  @@unique([facebookAccountId, campaignId])
+  @@map("campaigns")
+}
+
+model AdSet {
+  id               String   @id @default(cuid())
+  campaignId       String
+  adSetId          String   // ID do conjunto no Facebook
+  name             String
+  status           String
+  targetingType    String?
+  desiredCPA       Float?   // CPA desejável específico do conjunto
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  campaign Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  ads      Ad[]
+  metrics  AdSetMetrics[]
+  
+  @@unique([campaignId, adSetId])
+  @@map("ad_sets")
+}
+
+model Ad {
+  id        String   @id @default(cuid())
+  adSetId   String
+  adId      String   // ID do anúncio no Facebook
+  name      String
+  status    String
+  creative  String?  // JSON com dados do criativo
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  adSet   AdSet        @relation(fields: [adSetId], references: [id], onDelete: Cascade)
+  metrics AdMetrics[]
+  
+  @@unique([adSetId, adId])
+  @@map("ads")
+}
+
+model CampaignMetrics {
+  id           String   @id @default(cuid())
+  campaignId   String
+  date         DateTime
+  impressions  Int      @default(0)
+  reach        Int      @default(0)
+  clicks       Int      @default(0)
+  spend        Float    @default(0)
+  conversions  Int      @default(0)
+  ctr          Float    @default(0)
+  cpc          Float    @default(0)
+  cpm          Float    @default(0)
+  cpa          Float    @default(0)
+  roas         Float    @default(0)
+  frequency    Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  @@unique([campaignId, date])
+  @@map("campaign_metrics")
+}
+
+model AdSetMetrics {
+  id           String   @id @default(cuid())
+  adSetId      String
+  date         DateTime
+  impressions  Int      @default(0)
+  reach        Int      @default(0)
+  clicks       Int      @default(0)
+  spend        Float    @default(0)
+  conversions  Int      @default(0)
+  ctr          Float    @default(0)
+  cpc          Float    @default(0)
+  cpm          Float    @default(0)
+  cpa          Float    @default(0)
+  roas         Float    @default(0)
+  frequency    Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  adSet AdSet @relation(fields: [adSetId], references: [id], onDelete: Cascade)
+  
+  @@unique([adSetId, date])
+  @@map("ad_set_metrics")
+}
+
+model AdMetrics {
+  id           String   @id @default(cuid())
+  adId         String
+  date         DateTime
+  impressions  Int      @default(0)
+  reach        Int      @default(0)
+  clicks       Int      @default(0)
+  spend        Float    @default(0)
+  conversions  Int      @default(0)
+  ctr          Float    @default(0)
+  cpc          Float    @default(0)
+  cpm          Float    @default(0)
+  cpa          Float    @default(0)
+  roas         Float    @default(0)
+  frequency    Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  ad Ad @relation(fields: [adId], references: [id], onDelete: Cascade)
+  
+  @@unique([adId, date])
+  @@map("ad_metrics")
+}
+
+model AIInsight {
+  id              String   @id @default(cuid())
+  type            String   // 'campaign', 'adset', 'ad', 'general'
+  entityId        String?  // ID da entidade relacionada
+  title           String
+  content         String   // Insight gerado pela IA
+  recommendations String?  // Recomendações específicas
+  confidence      Float    @default(0.5) // Nível de confiança da IA
+  feedback        String?  // 'positive', 'negative', null
+  createdAt       DateTime @default(now())
+  
+  @@map("ai_insights")
+}
+
+model SyncLog {
+  id            String   @id @default(cuid())
+  accountId     String
+  syncType      String   // 'full', 'incremental', 'metrics'
+  status        String   // 'success', 'error', 'partial'
+  recordsSync   Int      @default(0)
+  errorMessage  String?
+  duration      Int?     // Duração em milissegundos
+  createdAt     DateTime @default(now())
+  
+  @@map("sync_logs")
+}
