@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: server/utils/crypto.js
-# ==========================================
-
 const crypto = require('crypto');
 
 class CryptoUtils {

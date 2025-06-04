@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: client/src/pages/AccountsPage.jsx
-# ==========================================
-
 import React from 'react'
 
 const AccountsPage = () => {

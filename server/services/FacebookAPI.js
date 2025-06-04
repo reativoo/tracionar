@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: server/services/FacebookAPI.js
-# ==========================================
-
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');

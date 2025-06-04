@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: server/routes/auth.js
-# ==========================================
-
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -26,15 +22,42 @@ const loginValidation = [
     .withMessage('Senha deve ter pelo menos 6 caracteres')
 ];
 
+// Validações para setup (mais completas)
 const setupValidation = [
-  ...loginValidation,
+  body('username')
+    .trim()
+    .isLength({ min: 3, max: 50 })
+    .withMessage('Usuário deve ter entre 3 e 50 caracteres')
+    .matches(/^[a-zA-Z0-9_]+$/)
+    .withMessage('Usuário deve conter apenas letras, números e underscore'),
+  
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Email inválido'),
+  
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Senha deve ter pelo menos 8 caracteres')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Senha deve conter ao menos: 1 minúscula, 1 maiúscula e 1 número'),
+  
   body('confirmPassword')
     .custom((value, { req }) => {
       if (value !== req.body.password) {
         throw new Error('Confirmação de senha não confere');
       }
       return true;
-    })
+    }),
+  
+  body('acceptTerms')
+    .equals('true')
+    .withMessage('Você deve aceitar os termos'),
+    
+  body('companyName')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
 ];
 
 // POST /api/auth/setup - Configuração inicial (primeiro usuário)
@@ -58,7 +81,28 @@ router.post('/setup', checkFirstSetup, setupValidation, async (req, res) => {
       });
     }
 
-    const { username, password } = req.body;
+    const { username, email, password, companyName } = req.body;
+
+    // Verificar se usuário ou email já existe
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: username.toLowerCase() },
+          { email: email.toLowerCase() }
+        ]
+      }
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        error: existingUser.username === username.toLowerCase() 
+          ? 'Nome de usuário já existe' 
+          : 'Email já está em uso',
+        code: existingUser.username === username.toLowerCase() 
+          ? 'USERNAME_TAKEN' 
+          : 'EMAIL_TAKEN'
+      });
+    }
 
     // Hash da senha
     const saltRounds = 12;
@@ -68,6 +112,7 @@ router.post('/setup', checkFirstSetup, setupValidation, async (req, res) => {
     const user = await prisma.user.create({
       data: {
         username: username.toLowerCase(),
+        email: email.toLowerCase(),
         password: hashedPassword,
         preferences: {
           create: {
@@ -79,6 +124,7 @@ router.post('/setup', checkFirstSetup, setupValidation, async (req, res) => {
       select: {
         id: true,
         username: true,
+        email: true,
         createdAt: true
       }
     });
@@ -102,6 +148,7 @@ router.post('/setup', checkFirstSetup, setupValidation, async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        email: user.email,
         createdAt: user.createdAt
       },
       token,
@@ -112,9 +159,10 @@ router.post('/setup', checkFirstSetup, setupValidation, async (req, res) => {
     logger.error('Erro no setup inicial:', error);
 
     if (error.code === 'P2002') {
+      const field = error.meta?.target?.includes('username') ? 'usuário' : 'email';
       return res.status(409).json({
-        error: 'Usuário já existe',
-        code: 'USERNAME_TAKEN'
+        error: `Este ${field} já está em uso`,
+        code: field === 'usuário' ? 'USERNAME_TAKEN' : 'EMAIL_TAKEN'
       });
     }
 

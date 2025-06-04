@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: client/src/components/UI/LoadingSpinner.jsx	
-# ==========================================
-
 import React from 'react'
 import { clsx } from 'clsx'
 

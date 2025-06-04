@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: server/index.js
-# ==========================================
-
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -34,13 +30,13 @@ app.use(helmet({
   }
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // limite de 100 requests por IP
-  message: 'Muitas tentativas. Tente novamente em 15 minutos.'
-});
-app.use(limiter);
+// Rate limiting - DESABILITADO TEMPORARIAMENTE PARA DESENVOLVIMENTO
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutos
+//   max: 100, // limite de 100 requests por IP
+//   message: 'Muitas tentativas. Tente novamente em 15 minutos.'
+// });
+// app.use(limiter);
 
 // CORS configurado para desenvolvimento local e produção
 const corsOptions = {

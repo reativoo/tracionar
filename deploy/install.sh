@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: deploy/install.sh
-# ==========================================
-
 #!/bin/bash
 
 # Script de Deploy Automático - TRACIONAR

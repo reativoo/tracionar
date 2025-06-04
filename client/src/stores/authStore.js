@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: client/src/stores/authStore.js
-# ==========================================
-
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import api from '../services/api'
@@ -71,14 +67,16 @@ const useAuthStore = create(
             needsSetup: false
           })
 
-          toast.success('TRACIONAR configurado com sucesso!')
+          toast.success(`TRACIONAR configurado com sucesso! Bem-vindo, ${user.username}!`)
           return { success: true }
 
         } catch (error) {
           set({ isLoading: false })
           
           const message = error.response?.data?.error || 'Erro na configuração inicial'
-          toast.error(message)
+          
+          // Não mostrar toast se retornarmos o erro para o componente tratar
+          console.error('Setup error:', error)
           
           return { 
             success: false, 

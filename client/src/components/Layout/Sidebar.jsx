@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: client/src/components/Layout/Sidebar.jsx
-# ==========================================
-
 import React, { Fragment } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { NavLink, useNavigate } from 'react-router-dom'
@@ -10,7 +6,7 @@ import {
   ChartBarIcon,
   BoltIcon,
   CreditCardIcon,
-  BrainIcon,
+  CpuChipIcon,
   DocumentArrowDownIcon,
   CogIcon,
   ArrowRightOnRectangleIcon
@@ -37,10 +33,10 @@ const navigation = [
     description: 'Gerenciar contas do Facebook'
   },
   { 
-    name: 'Insights IA', 
-    href: '/insights', 
-    icon: BrainIcon,
-    description: 'Sugestões da inteligência artificial'
+  name: 'Insights IA', 
+  href: '/insights', 
+  icon: CpuChipIcon,
+  description: 'Sugestões da inteligência artificial'
   },
   { 
     name: 'Relatórios', 

@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: client/src/pages/CampaignsPage.jsx
-# ==========================================
-
 import React from 'react'
 
 const CampaignsPage = () => {

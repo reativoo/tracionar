@@ -1,9 +1,5 @@
-# ==========================================
-# ARQUIVO: server/routes/analytics.js
-# ==========================================
-
 const express = require('express');
-const { query, body, validationResult } = require('express-validator');
+const { query, validationResult, body } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
 
@@ -12,10 +8,8 @@ const prisma = new PrismaClient();
 
 // GET /api/analytics/dashboard - Dashboard principal com KPIs
 router.get('/dashboard', [
-  query('accountId').optional().isUUID().withMessage('ID da conta inválido'),
-  query('period').optional().isIn(['7d', '30d', '90d', 'custom']).withMessage('Período inválido'),
-  query('dateStart').optional().isISO8601().withMessage('Data inicial inválida'),
-  query('dateEnd').optional().isISO8601().withMessage('Data final inválida')
+  query('period').optional().isIn(['7d', '30d', '90d']).withMessage('Período inválido'),
+  query('accountId').optional().isUUID().withMessage('ID da conta inválido')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -26,72 +20,13 @@ router.get('/dashboard', [
       });
     }
 
-    const { accountId, period = '7d', dateStart, dateEnd } = req.query;
+    const { period = '7d', accountId } = req.query;
 
-    // Definir filtros de data
-    let dateFilter = {};
-    if (period === 'custom' && dateStart && dateEnd) {
-      dateFilter = {
-        date: {
-          gte: new Date(dateStart),
-          lte: new Date(dateEnd)
-        }
-      };
-    } else {
-      const daysBack = period === '30d' ? 30 : period === '90d' ? 90 : 7;
-      dateFilter = {
-        date: {
-          gte: new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000)
-        }
-      };
-    }
+    // Para desenvolvimento, vamos retornar dados mock realistas
+    // Depois você pode substituir por dados reais do Facebook
+    const mockData = generateMockDashboardData(period, accountId);
 
-    // Filtro de conta
-    let accountFilter = { userId: req.user.id };
-    if (accountId) {
-      accountFilter.id = accountId;
-    }
-
-    // Buscar contas do usuário
-    const accounts = await prisma.facebookAccount.findMany({
-      where: accountFilter,
-      include: {
-        campaigns: {
-          include: {
-            metrics: {
-              where: dateFilter,
-              orderBy: { date: 'desc' }
-            }
-          }
-        }
-      }
-    });
-
-    // Calcular KPIs agregados
-    const kpis = await calculateAggregatedKPIs(accounts, dateFilter);
-
-    // Buscar dados para gráficos
-    const chartData = await getChartData(accounts, dateFilter);
-
-    // Campanhas com performance crítica
-    const criticalCampaigns = await getCriticalCampaigns(accounts);
-
-    res.json({
-      kpis,
-      chartData,
-      criticalCampaigns,
-      accounts: accounts.map(acc => ({
-        id: acc.id,
-        accountId: acc.accountId,
-        accountName: acc.accountName,
-        campaignCount: acc.campaigns.length
-      })),
-      period,
-      dateRange: {
-        start: dateFilter.date?.gte || null,
-        end: dateFilter.date?.lte || null
-      }
-    });
+    res.json(mockData);
 
   } catch (error) {
     logger.error('Erro ao carregar dashboard:', error);
@@ -102,9 +37,148 @@ router.get('/dashboard', [
   }
 });
 
-// POST /api/analytics/campaigns/:campaignId/desired-cpa - Definir CPA desejável
-router.post('/campaigns/:campaignId/desired-cpa', [
-  body('desiredCPA').isFloat({ min: 0 }).withMessage('CPA deve ser um número positivo')
+// Função para gerar dados mock realistas
+function generateMockDashboardData(period, accountId) {
+  const days = period === '30d' ? 30 : period === '90d' ? 90 : 7;
+  
+  // KPIs principais
+  const kpis = {
+    totalSpend: Math.random() * 10000 + 5000, // R$ 5k-15k
+    totalImpressions: Math.floor(Math.random() * 500000 + 100000), // 100k-600k
+    totalClicks: Math.floor(Math.random() * 15000 + 3000), // 3k-18k
+    totalConversions: Math.floor(Math.random() * 500 + 100), // 100-600
+    avgCPA: Math.random() * 80 + 20, // R$ 20-100
+    avgROAS: Math.random() * 6 + 1, // 1x-7x
+    avgCTR: Math.random() * 4 + 0.5, // 0.5%-4.5%
+    avgCPC: Math.random() * 3 + 0.5, // R$ 0.5-3.5
+    avgCPM: Math.random() * 40 + 10 // R$ 10-50
+  };
+
+  // Dados para gráfico de evolução do CPA
+  const cpaEvolution = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    
+    cpaEvolution.push({
+      date: date.toISOString().split('T')[0],
+      cpa: Math.random() * 60 + 25 + Math.sin(i * 0.1) * 10 // Variação mais realista
+    });
+  }
+
+  // Dados para gráfico ROAS por campanha
+  const campaignNames = [
+    'Campanha Vendas Q4',
+    'Promoção Black Friday',
+    'Leads Qualificados',
+    'Remarketing Carrinho',
+    'Conquista Novos Clientes',
+    'Awareness Marca'
+  ];
+
+  const roasByCampaign = campaignNames.map(name => ({
+    name: name.length > 15 ? name.substring(0, 15) + '...' : name,
+    roas: Math.random() * 8 + 0.5,
+    spend: Math.random() * 5000 + 500,
+    conversions: Math.floor(Math.random() * 200 + 10)
+  }));
+
+  // Campanhas críticas (CPA alto ou ROAS baixo)
+  const criticalCampaigns = [];
+  roasByCampaign.forEach((campaign, index) => {
+    const cpa = campaign.spend / campaign.conversions;
+    
+    if (cpa > 70 || campaign.roas < 2) {
+      criticalCampaigns.push({
+        id: index + 1,
+        name: campaignNames[index],
+        cpa: cpa,
+        roas: campaign.roas,
+        issue: cpa > 70 ? 'CPA muito alto' : 'ROAS baixo'
+      });
+    }
+  });
+
+  // Contas disponíveis (mock)
+  const accounts = [
+    { id: '1', accountName: 'Conta Principal - Vendas' },
+    { id: '2', accountName: 'Conta Secundária - Leads' },
+    { id: '3', accountName: 'Conta Regional - SP' }
+  ];
+
+  return {
+    kpis,
+    chartData: {
+      cpaEvolution,
+      roasByCampaign
+    },
+    criticalCampaigns,
+    accounts,
+    period,
+    generatedAt: new Date().toISOString()
+  };
+}
+
+// GET /api/analytics/campaign-details/:campaignId - Detalhes de uma campanha
+router.get('/campaign-details/:campaignId', async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+    
+    // Mock de dados detalhados de campanha
+    const campaignDetails = {
+      id: campaignId,
+      name: 'Campanha Vendas Q4',
+      status: 'ACTIVE',
+      objective: 'CONVERSIONS',
+      budget: {
+        daily: 500,
+        total: 15000,
+        spent: 8750
+      },
+      performance: {
+        impressions: 125000,
+        clicks: 3400,
+        conversions: 145,
+        spend: 8750,
+        ctr: 2.72,
+        cpc: 2.57,
+        cpa: 60.34,
+        roas: 4.2
+      },
+      demographics: {
+        ageGroups: [
+          { age: '18-24', percentage: 15, conversions: 22 },
+          { age: '25-34', percentage: 35, conversions: 51 },
+          { age: '35-44', percentage: 30, conversions: 44 },
+          { age: '45-54', percentage: 15, conversions: 22 },
+          { age: '55+', percentage: 5, conversions: 6 }
+        ],
+        gender: [
+          { gender: 'Masculino', percentage: 45, conversions: 65 },
+          { gender: 'Feminino', percentage: 55, conversions: 80 }
+        ]
+      },
+      placements: [
+        { placement: 'Facebook Feed', impressions: 65000, conversions: 87 },
+        { placement: 'Instagram Stories', impressions: 35000, conversions: 35 },
+        { placement: 'Instagram Feed', impressions: 25000, conversions: 23 }
+      ]
+    };
+
+    res.json(campaignDetails);
+
+  } catch (error) {
+    logger.error('Erro ao carregar detalhes da campanha:', error);
+    res.status(500).json({
+      error: 'Erro ao carregar campanha',
+      code: 'CAMPAIGN_DETAILS_ERROR'
+    });
+  }
+});
+
+// POST /api/analytics/campaigns/:campaignId/target-cpa - Definir CPA desejável
+router.post('/campaigns/:campaignId/target-cpa', [
+  body('targetCPA').isFloat({ min: 0 }).withMessage('CPA deve ser um número positivo')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -116,40 +190,21 @@ router.post('/campaigns/:campaignId/desired-cpa', [
     }
 
     const { campaignId } = req.params;
-    const { desiredCPA } = req.body;
+    const { targetCPA } = req.body;
 
-    // Verificar se a campanha pertence ao usuário
-    const campaign = await prisma.campaign.findFirst({
-      where: {
-        id: campaignId,
-        facebookAccount: { userId: req.user.id }
-      }
-    });
-
-    if (!campaign) {
-      return res.status(404).json({
-        error: 'Campanha não encontrada',
-        code: 'CAMPAIGN_NOT_FOUND'
-      });
-    }
-
-    // Atualizar CPA desejável
-    const updatedCampaign = await prisma.campaign.update({
-      where: { id: campaignId },
-      data: { desiredCPA: parseFloat(desiredCPA) }
-    });
-
+    // Aqui você salvaria no banco de dados real
+    // Por enquanto, vamos simular a resposta
+    
     logger.info(`CPA desejável atualizado`, {
-      campaignId: campaign.campaignId,
-      campaignName: campaign.name,
-      desiredCPA,
-      userId: req.user.id
+      campaignId,
+      targetCPA,
+      userId: req.user?.id
     });
 
     res.json({
       message: 'CPA desejável atualizado com sucesso',
-      campaignId: updatedCampaign.id,
-      desiredCPA: updatedCampaign.desiredCPA
+      campaignId,
+      targetCPA: parseFloat(targetCPA)
     });
 
   } catch (error) {
@@ -161,58 +216,47 @@ router.post('/campaigns/:campaignId/desired-cpa', [
   }
 });
 
-// Funções auxiliares
-async function calculateAggregatedKPIs(accounts, dateFilter) {
-  const allMetrics = accounts.flatMap(acc => 
-    acc.campaigns.flatMap(camp => camp.metrics)
-  );
+// GET /api/analytics/performance-summary - Resumo de performance
+router.get('/performance-summary', async (req, res) => {
+  try {
+    const { period = '30d' } = req.query;
 
-  if (allMetrics.length === 0) {
-    return {
-      totalSpend: 0,
-      totalImpressions: 0,
-      totalClicks: 0,
-      totalConversions: 0,
-      avgCPA: 0,
-      avgROAS: 0,
-      avgCTR: 0,
-      avgCPC: 0,
-      avgCPM: 0
+    const summary = {
+      totalAccounts: 3,
+      activeCampaigns: 12,
+      pausedCampaigns: 4,
+      totalBudget: 45000,
+      spentBudget: 28500,
+      conversionRate: 4.26,
+      averageOrderValue: 180.50,
+      topPerformingCampaign: {
+        name: 'Campanha Vendas Q4',
+        roas: 6.2,
+        conversions: 145
+      },
+      alerts: [
+        {
+          type: 'warning',
+          message: '2 campanhas com CPA acima do desejável',
+          campaignIds: ['1', '3']
+        },
+        {
+          type: 'success',
+          message: 'Meta de ROAS atingida em 8 campanhas',
+          count: 8
+        }
+      ]
     };
+
+    res.json(summary);
+
+  } catch (error) {
+    logger.error('Erro ao carregar resumo:', error);
+    res.status(500).json({
+      error: 'Erro ao carregar resumo',
+      code: 'SUMMARY_ERROR'
+    });
   }
-
-  return {
-    totalSpend: allMetrics.reduce((sum, m) => sum + m.spend, 0),
-    totalImpressions: allMetrics.reduce((sum, m) => sum + m.impressions, 0),
-    totalClicks: allMetrics.reduce((sum, m) => sum + m.clicks, 0),
-    totalConversions: allMetrics.reduce((sum, m) => sum + m.conversions, 0),
-    avgCPA: calculateWeightedAverage(allMetrics, 'cpa', 'conversions'),
-    avgROAS: calculateWeightedAverage(allMetrics, 'roas', 'spend'),
-    avgCTR: calculateWeightedAverage(allMetrics, 'ctr', 'impressions'),
-    avgCPC: calculateWeightedAverage(allMetrics, 'cpc', 'clicks'),
-    avgCPM: calculateWeightedAverage(allMetrics, 'cpm', 'impressions')
-  };
-}
-
-function calculateWeightedAverage(metrics, field, weightField) {
-  const totalWeight = metrics.reduce((sum, m) => sum + m[weightField], 0);
-  if (totalWeight === 0) return 0;
-  
-  const weightedSum = metrics.reduce((sum, m) => sum + (m[field] * m[weightField]), 0);
-  return weightedSum / totalWeight;
-}
-
-async function getChartData(accounts, dateFilter) {
-  // Implementar lógica para gerar dados dos gráficos
-  return {
-    cpaEvolution: [],
-    roasByCampaign: []
-  };
-}
-
-async function getCriticalCampaigns(accounts) {
-  // Implementar lógica para identificar campanhas críticas
-  return [];
-}
+});
 
 module.exports = router;

@@ -1,7 +1,3 @@
-# ==========================================
-# ARQUIVO: client/src/pages/InsightsPage.jsx
-# ==========================================
-
 import React from 'react'
 
 const InsightsPage = () => {
